@@ -9,7 +9,7 @@ from torchmdnet.models.model import create_model, load_model
 
 class LNNP(LightningModule):
     def __init__(
-        self, hparams, prior_model=None, mean=None, std=None, self_supervised=True
+        self, hparams, prior_model=None, mean=None, std=None, self_supervised=False
     ):
         super(LNNP, self).__init__()
         self.save_hyperparameters(hparams)

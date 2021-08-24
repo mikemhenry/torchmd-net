@@ -33,6 +33,7 @@ def get_args():
     parser.add_argument('--weight-decay', type=float, default=0.0, help='Weight decay strength')
     parser.add_argument('--ema-alpha-y', type=float, default=1.0, help='The amount of influence of new losses on the exponential moving average of y')
     parser.add_argument('--ema-alpha-dy', type=float, default=1.0, help='The amount of influence of new losses on the exponential moving average of dy')
+    parser.add_argument('--self-supervised', type=bool, default=False, help='If true, mask out one atom and predict its atom type')
     parser.add_argument('--ngpus', type=int, default=-1, help='Number of GPUs, -1 use all available. Use CUDA_VISIBLE_DEVICES=1, to decide gpus')
     parser.add_argument('--num-nodes', type=int, default=1, help='Number of nodes')
     parser.add_argument('--precision', type=int, default=32, choices=[16, 32], help='Floating point precision')
@@ -123,7 +124,13 @@ def main():
         args.prior_args = prior.get_init_args()
 
     # initialize lightning module
-    model = LNNP(args, prior_model=prior, mean=data.mean, std=data.std)
+    model = LNNP(
+        args,
+        prior_model=prior,
+        mean=data.mean,
+        std=data.std,
+        self_supervised=args.self_supervised,
+    )
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=args.log_dir,
