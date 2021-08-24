@@ -8,9 +8,15 @@ from torchmdnet.models.model import create_model, load_model
 
 
 class LNNP(LightningModule):
-    def __init__(self, hparams, prior_model=None, mean=None, std=None):
+    def __init__(
+        self, hparams, prior_model=None, mean=None, std=None, self_supervised=True
+    ):
         super(LNNP, self).__init__()
         self.save_hyperparameters(hparams)
+        self.self_supervised = self_supervised
+
+        if self.self_supervised:
+            self.hparams["output_model"] = "Categorical"
 
         if self.hparams.load_model:
             self.model = load_model(self.hparams.load_model, args=self.hparams)
@@ -63,10 +69,33 @@ class LNNP(LightningModule):
         return self.step(batch, l1_loss, "test")
 
     def step(self, batch, loss_fn, stage):
+        if self.self_supervised:
+            counts = batch.batch.unique(return_counts=True)[1]
+            cumulative = [0] + counts.cumsum(0).tolist()
+            idxs = torch.tensor(
+                [
+                    torch.randint(0, n_atoms, (1,)) + cumulative[i]
+                    for i, n_atoms in enumerate(counts)
+                ]
+            )
+            mask = torch.ones_like(batch.batch, dtype=torch.bool)
+            mask[idxs] = False
+
+            y_z = batch.z[~mask]
+            batch.z = batch.z[mask]
+            batch.pos = batch.pos[mask]
+            batch.batch = batch.batch[mask]
+
         with torch.set_grad_enabled(stage == "train" or self.hparams.derivative):
             # TODO: the model doesn't necessarily need to return a derivative once
             # Union typing works under TorchScript (https://github.com/pytorch/pytorch/pull/53180)
             pred, deriv = self(batch.z, batch.pos, batch.batch)
+
+        if self.self_supervised:
+            # z prediction
+            loss = torch.nn.functional.cross_entropy(pred, y_z)
+            self.losses[stage].append(loss.detach())
+            return loss
 
         loss_y, loss_dy = 0, 0
         if self.hparams.derivative:

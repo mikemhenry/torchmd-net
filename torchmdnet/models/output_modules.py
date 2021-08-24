@@ -5,6 +5,7 @@ from torchmdnet.models.utils import act_class_mapping, GatedEquivariantBlock
 from torch_scatter import scatter
 import torch
 from torch import nn
+from torch.nn import functional as F
 
 
 __all__ = ["Scalar", "DipoleMoment", "ElectronicSpatialExtent"]
@@ -145,3 +146,56 @@ class ElectronicSpatialExtent(OutputModel):
 
 class EquivariantElectronicSpatialExtent(ElectronicSpatialExtent):
     pass
+
+
+class Categorical(OutputModel):
+    def __init__(self, hidden_channels, activation="silu", allow_prior_model=True):
+        super(Categorical, self).__init__(allow_prior_model=allow_prior_model)
+        self.z_predictor = nn.Sequential(
+            nn.Linear(hidden_channels, hidden_channels // 2),
+            act_class_mapping[activation](),
+            nn.Linear(hidden_channels // 2, 10),
+            nn.Softmax(-1),
+        )
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        nn.init.xavier_uniform_(self.z_predictor[0].weight)
+        self.z_predictor[0].bias.data.fill_(0)
+        nn.init.xavier_uniform_(self.z_predictor[2].weight)
+        self.z_predictor[2].bias.data.fill_(0)
+
+    def pre_reduce(self, x, v: Optional[torch.Tensor], z, pos, batch):
+        x = self.z_predictor(x)
+        return x
+
+
+class EquivariantCategorical(OutputModel):
+    def __init__(self, hidden_channels, activation="silu", allow_prior_model=True):
+        super(EquivariantCategorical, self).__init__(
+            allow_prior_model=allow_prior_model
+        )
+        self.z_predictor = nn.ModuleList(
+            [
+                GatedEquivariantBlock(
+                    hidden_channels,
+                    hidden_channels // 2,
+                    activation=activation,
+                    scalar_activation=True,
+                ),
+                GatedEquivariantBlock(hidden_channels // 2, 10, activation=activation),
+            ]
+        )
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        for layer in self.z_predictor:
+            layer.reset_parameters()
+
+    def pre_reduce(self, x, v: Optional[torch.Tensor], z, pos, batch):
+        for layer in self.z_predictor:
+            x, v = layer(x, v)
+        x = F.softmax(x, dim=1) + v.sum() * 0
+        return x
