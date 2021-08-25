@@ -83,7 +83,7 @@ def create_model(args, prior_model=None, mean=None, std=None, load_rep_model=Tru
         args["embedding_dimension"], args["activation"]
     )
 
-    if load_rep_model and False:
+    if load_rep_model:
         representation_model = load_model(args["pretrained_rep"]).representation_model
         for param in representation_model.parameters():
             param.requires_grad = False

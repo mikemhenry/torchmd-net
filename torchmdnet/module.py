@@ -69,6 +69,16 @@ class LNNP(LightningModule):
         return self.step(batch, l1_loss, "test")
 
     def step(self, batch, loss_fn, stage):
+        if (
+            self.hparams["pretrained_rep"] is not None
+            and self.trainer.global_step == self.hparams["fixed_rep_steps"]
+        ):
+            for param in self.model.representation_model.parameters():
+                param.requires_grad = True
+            for optim in self.trainer.optimizers:
+                for pg in optim.param_groups:
+                    pg["lr"] = pg["lr"] * 10
+
         if self.self_supervised:
             counts = batch.batch.unique(return_counts=True)[1]
             cumulative = [0] + counts.cumsum(0).tolist()
