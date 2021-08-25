@@ -34,6 +34,7 @@ def get_args():
     parser.add_argument('--ema-alpha-y', type=float, default=1.0, help='The amount of influence of new losses on the exponential moving average of y')
     parser.add_argument('--ema-alpha-dy', type=float, default=1.0, help='The amount of influence of new losses on the exponential moving average of dy')
     parser.add_argument('--self-supervised', type=bool, default=False, help='If true, mask out one atom and predict its atom type')
+    parser.add_argument('--pretrained-rep', type=str, default=None, help='Path to the pretrained representation model checkpoint')
     parser.add_argument('--ngpus', type=int, default=-1, help='Number of GPUs, -1 use all available. Use CUDA_VISIBLE_DEVICES=1, to decide gpus')
     parser.add_argument('--num-nodes', type=int, default=1, help='Number of nodes')
     parser.add_argument('--precision', type=int, default=32, choices=[16, 32], help='Floating point precision')

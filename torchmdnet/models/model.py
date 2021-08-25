@@ -13,7 +13,7 @@ from torchmdnet.models.wrappers import AtomFilter
 from torchmdnet import priors
 
 
-def create_model(args, prior_model=None, mean=None, std=None):
+def create_model(args, prior_model=None, mean=None, std=None, load_rep_model=True):
     if prior_model is not None and (mean is not None or std is not None):
         rank_zero_warn(
             "Prior model and standardize are given, only using the prior model."
@@ -83,6 +83,11 @@ def create_model(args, prior_model=None, mean=None, std=None):
         args["embedding_dimension"], args["activation"]
     )
 
+    if load_rep_model and False:
+        representation_model = load_model(args["pretrained_rep"]).representation_model
+        for param in representation_model.parameters():
+            param.requires_grad = False
+
     # combine representation and output network
     model = TorchMD_Net(
         representation_model,
@@ -105,7 +110,7 @@ def load_model(filepath, args=None, device="cpu", **kwargs):
         assert key in args, "Unknown hyperparameter '{key}'."
         args[key] = value
 
-    model = create_model(args)
+    model = create_model(args, load_rep_model=False)
 
     state_dict = {re.sub(r"^model\.", "", k): v for k, v in ckpt["state_dict"].items()}
     model.load_state_dict(state_dict)
